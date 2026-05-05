@@ -162,6 +162,7 @@ def send_discord_messages(collection):
     """
     webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
     if not webhook_url:
+        print("DISCORD_WEBHOOK_URL not set, skipping Discord messages.")
         return
 
     # Send messages for towns with upkeep_days < 3
