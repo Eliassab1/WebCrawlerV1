@@ -168,6 +168,7 @@ def send_discord_messages(collection):
     towns_low = collection.find({'upkeep_days': {'$lt': 3}})
     for town in towns_low:
         msg = f"⚠️ Town: {town['name']}\nBalance: ${town['balance']}\nUpkeep: ${town['upkeep']}\nDays: {round(town['upkeep_days'], 1)}"
+        print(f"Sending Discord message: {msg}")
         requests.post(webhook_url, json={"content": msg})
 
     # Calculate and send total balance
@@ -175,6 +176,7 @@ def send_discord_messages(collection):
     result = list(collection.aggregate(pipeline))
     total_balance = result[0]['total'] if result else 0.0
     msg = f"💰 Total balance of all towns: ${total_balance}"
+    print(f"Sending Discord message: {msg}")
     requests.post(webhook_url, json={"content": msg})
 
 
