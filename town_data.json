@@ -1,0 +1,72 @@
+[
+    {
+        "name": "Rivendell",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;5432,64,2291;3",
+        "balance": 144131.47,
+        "upkeep": 693.0,
+        "upkeep_days": 208.0
+    },
+    {
+        "name": "Minas_Tirith",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;5692,64,2353;3",
+        "balance": 1976.12,
+        "upkeep": 92.0,
+        "upkeep_days": 21.5
+    },
+    {
+        "name": "Helmsdeep",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;2914,64,3069;3",
+        "balance": 4573.94,
+        "upkeep": 229.0,
+        "upkeep_days": 20.0
+    },
+    {
+        "name": "Ironhold",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;2742,64,1208;4",
+        "balance": 6247.45,
+        "upkeep": 148.0,
+        "upkeep_days": 42.2
+    },
+    {
+        "name": "Kynari",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;2968,64,999;4",
+        "balance": 4141.92,
+        "upkeep": 215.0,
+        "upkeep_days": 19.3
+    },
+    {
+        "name": "Tynari",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;2544,64,1431;4",
+        "balance": 3396.16,
+        "upkeep": 215.0,
+        "upkeep_days": 15.8
+    },
+    {
+        "name": "Asteria",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;1584,64,1549;4",
+        "balance": 2553.27,
+        "upkeep": 362.0,
+        "upkeep_days": 7.1
+    },
+    {
+        "name": "Windhoek",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;2082,64,3565;4",
+        "balance": 437275.58,
+        "upkeep": 340.0,
+        "upkeep_days": 1286.1
+    },
+    {
+        "name": "PexogonCity",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;2254,64,3645;4",
+        "balance": 8848.74,
+        "upkeep": 109.0,
+        "upkeep_days": 81.2
+    },
+    {
+        "name": "Bombolo",
+        "url": "https://map.ccnetmc.com/nationsmap/#world;flat;3260,64,2699;4",
+        "balance": 8229.09,
+        "upkeep": 188.0,
+        "upkeep_days": 43.8
+    }
+]
