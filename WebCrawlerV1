@@ -93,7 +93,7 @@ def scrape_using_urls():
     print(f"Loaded {len(towns_list)} towns to scan.")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         # Calculate screen center once
         center_x = page.viewport_size['width'] / 2
