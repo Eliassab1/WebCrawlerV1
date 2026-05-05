@@ -31,4 +31,6 @@ jobs:
         MONGODB_URI: ${{ secrets.MONGODB_URI }}
         MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
         MONGO_COLLECTION_NAME: ${{ secrets.MONGO_COLLECTION_NAME }}
+        DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+        DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
       run: python WebCrawlerV1

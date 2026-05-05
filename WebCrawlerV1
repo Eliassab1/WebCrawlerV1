@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import time
 import re
 import os
+import discord
+import asyncio
 
 # Load environment variables from .env file
 load_dotenv()
@@ -148,10 +150,66 @@ def scrape_using_urls():
         browser.close()
         print("🎉 Scraping run complete!")
 
+        return collection
+
+
+
+# ==========================================
+# 🤖 DISCORD BOT FUNCTION
+# ==========================================
+async def send_discord_messages(collection):
+    """
+    Send Discord messages for towns with upkeep days < 3 and total balance sum.
+    """
+    token = os.getenv('DISCORD_TOKEN')
+    if not token:
+        print("❌ DISCORD_TOKEN not set in environment variables.")
+        return
+
+    channel_id = os.getenv('DISCORD_CHANNEL_ID')
+    if not channel_id:
+        print("❌ DISCORD_CHANNEL_ID not set in environment variables.")
+        return
+
+    channel_id = int(channel_id)
+
+    intents = discord.Intents.default()
+    client = discord.Client(intents=intents)
+
+    @client.event
+    async def on_ready():
+        print(f"🤖 Logged in as {client.user}")
+        channel = client.get_channel(channel_id)
+        if not channel:
+            print("❌ Could not find the Discord channel.")
+            await client.close()
+            return
+
+        # Send messages for towns with upkeep_days < 3
+        towns_low = collection.find({'upkeep_days': {'$lt': 3}})
+        for town in towns_low:
+            msg = f"⚠️ Town: {town['name']}\nBalance: ${town['balance']}\nUpkeep: ${town['upkeep']}\nDays: {round(town['upkeep_days'], 1)}"
+            await channel.send(msg)
+
+        # Calculate and send total balance
+        pipeline = [{'$group': {'_id': None, 'total': {'$sum': '$balance'}}}]
+        result = list(collection.aggregate(pipeline))
+        total_balance = result[0]['total'] if result else 0.0
+        await channel.send(f"💰 Total balance of all towns: ${total_balance}")
+
+        print("✅ Discord messages sent.")
+        await client.close()
+
+    try:
+        await client.start(token)
+    except Exception as e:
+        print(f"❌ Error with Discord bot: {e}")
+
 
 
 # ==========================================
 # 🚀 EXECUTE THE PROGRAM
 # ==========================================
 if __name__ == "__main__":
-    scrape_using_urls()
+    collection = scrape_using_urls()
+    asyncio.run(send_discord_messages(collection))
