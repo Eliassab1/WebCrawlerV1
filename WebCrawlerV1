@@ -1,109 +1,95 @@
 from playwright.sync_api import sync_playwright
-from pymongo import MongoClient
-from dotenv import load_dotenv
+import sqlite3
 import time
 import re
-import os
-import discord
-import asyncio
-
-# Load environment variables from .env file
-load_dotenv()
+import json
 
 # ==========================================
-# 🗄️ DATABASE SETUP & FUNCTIONS (MongoDB)
+# 🗄️ DATABASE SETUP & FUNCTIONS
 # ==========================================
 
 def setup_db():
-    """
-    Connect to MongoDB using connection string from environment variable.
-    Falls back to localhost if not provided.
-    """
-    mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
-    db_name = os.getenv('MONGO_DB_NAME', 'Val')
-    collection_name = os.getenv('MONGO_COLLECTION_NAME', 'CCnet_Towns')
-    client = MongoClient(mongo_uri)
-    db = client[db_name]
-    collection = db[collection_name]
+    conn = sqlite3.connect('ccnet_towns.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS towns (
+            name TEXT PRIMARY KEY,
+            url TEXT,
+            balance REAL,
+            upkeep REAL,
+            upkeep_days REAL
+        )
+    ''')
+    conn.commit()
+    return conn
 
-    # Create index on name field for faster lookups
-    collection.create_index('name', unique=True)
+def load_initial_towns(conn):
+    """
+    PASTE YOUR MANUAL LIST HERE!
+    Format: ("Town Name", "URL")
+    """
+    my_towns = [
+        ("Rivendell", "https://map.ccnetmc.com/nationsmap/#world;flat;5432,64,2291;3"),
+        ("Minas_Tirith", "https://map.ccnetmc.com/nationsmap/#world;flat;5692,64,2353;3"),
+        ("Helmsdeep", "https://map.ccnetmc.com/nationsmap/#world;flat;2914,64,3069;3"),
+    ]
 
-    return collection
+    cursor = conn.cursor()
+    for name, url in my_towns:
+        # This inserts the town and URL. If the town is already in the DB, it does nothing.
+        cursor.execute('''
+            INSERT OR IGNORE INTO towns (name, url, balance, upkeep, upkeep_days)
+            VALUES (?, ?, 0.0, 0.0, 0.0)
+        ''', (name, url))
+    conn.commit()
 
-def get_towns_to_check(collection):
-    """
-    Fetch all towns from MongoDB collection.
-    Returns list of tuples: [(name, url), ...]
-    """
-    towns = collection.find({})
-    return [(town['name'], town['url']) for town in towns]
+def get_towns_to_check(conn):
+    cursor = conn.cursor()
+    cursor.execute('SELECT name, url FROM towns')
+    return cursor.fetchall()
 
-def update_town_stats(collection, name, balance, upkeep, upkeep_days):
-    """
-    Update town statistics in MongoDB.
-    """
-    collection.update_one(
-        {'name': name},
-        {'$set': {
-            'balance': balance,
-            'upkeep': upkeep,
-            'upkeep_days': upkeep_days
-        }},
-        upsert=True  # Create document if it doesn't exist
-    )
+def update_town_stats(conn, name, balance, upkeep, upkeep_days):
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE towns 
+        SET balance = ?, upkeep = ?, upkeep_days = ?
+        WHERE name = ?
+    ''', (balance, upkeep, upkeep_days, name))
+    conn.commit()
 
 # ==========================================
 # 🕸️ THE WEB CRAWLER FUNCTION
 # ==========================================
-def load_towns_from_mongodb(collection):
+def load_towns_from_json(conn):
     """
-    Verifies MongoDB connection and loads towns.
-    If no towns exist, inserts the default set.
+    Reads the existing town_data.json and syncs it with the SQLite database.
     """
     try:
-        count = collection.count_documents({})
-        if count == 0:
-            print("⚠️ No towns found in MongoDB. Inserting default towns...")
-            default_towns = [
-                {
-                    "name": "Rivendell",
-                    "url": "https://map.ccnetmc.com/nationsmap/#world;flat;5432,64,2291;3",
-                    "balance": 0.0,
-                    "upkeep": 0.0,
-                    "upkeep_days": 0.0
-                },
-                {
-                    "name": "Minas_Tirith",
-                    "url": "https://map.ccnetmc.com/nationsmap/#world;flat;5692,64,2353;3",
-                    "balance": 0.0,
-                    "upkeep": 0.0,
-                    "upkeep_days": 0.0
-                },
-                {
-                    "name": "Helmsdeep",
-                    "url": "https://map.ccnetmc.com/nationsmap/#world;flat;2914,64,3069;3",
-                    "balance": 0.0,
-                    "upkeep": 0.0,
-                    "upkeep_days": 0.0
-                }
-            ]
-            collection.insert_many(default_towns)
-            print(f"✅ Inserted {len(default_towns)} default towns.")
-        else:
-            print(f"✅ Found {count} towns in MongoDB.")
-    except Exception as e:
-        print(f"❌ Error connecting to MongoDB: {e}")
-        raise
+        with open('town_data.json', 'r', encoding='utf-8') as f:
+            town_data = json.load(f)
+
+        cursor = conn.cursor()
+        for town in town_data:
+            # Inserts new towns from the JSON into the DB if they don't exist
+            cursor.execute('''
+                INSERT OR IGNORE INTO towns (name, url, balance, upkeep, upkeep_days)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (town['name'], town['url'], town.get('balance', 0.0),
+                  town.get('upkeep', 0.0), town.get('upkeep_days', 0.0)))
+        conn.commit()
+        print(f"✅ Successfully synced {len(town_data)} towns from JSON.")
+    except FileNotFoundError:
+        print("⚠️ town_data.json not found. Falling back to initial manual list.")
+        load_initial_towns(conn)
 
 
 def scrape_using_urls():
-    collection = setup_db()
+    conn = setup_db()
 
-    # 🔄 Load towns from MongoDB
-    load_towns_from_mongodb(collection)
+    # 🔄 SWAP: Now we load from JSON instead of the hardcoded list
+    load_towns_from_json(conn)
 
-    towns_list = get_towns_to_check(collection)
+    towns_list = get_towns_to_check(conn)
     print(f"Loaded {len(towns_list)} towns to scan.")
 
     with sync_playwright() as p:
@@ -139,7 +125,7 @@ def scrape_using_urls():
                     clean_upkeep = float(upkeep_match.group(1).replace(',', ''))
                     upkeep_days = clean_balance / clean_upkeep if clean_upkeep > 0 else 0
 
-                    update_town_stats(collection, town_name, clean_balance, clean_upkeep, upkeep_days)
+                    update_town_stats(conn, town_name, clean_balance, clean_upkeep, upkeep_days)
                     print(f"✅ Saved {town_name} | Bal: ${clean_balance} | Upkeep: ${clean_upkeep} | Days: {round(upkeep_days, 1)}")
                 else:
                     print(f"⚠️ Could not find Bank or Upkeep numbers in {town_name}'s popup text.")
@@ -148,68 +134,35 @@ def scrape_using_urls():
                 print(f"❌ Failed to scrape {town_name}. Error: {e}")
 
         browser.close()
+        export_to_json(conn)
+        conn.close()
         print("🎉 Scraping run complete!")
 
-        return collection
 
+def export_to_json(conn):
+    cursor = conn.cursor()
+    # Grab everything we have saved in the database
+    cursor.execute('SELECT name, url, balance, upkeep, upkeep_days FROM towns')
+    rows = cursor.fetchall()
 
+    town_data = []
+    for row in rows:
+        town_data.append({
+            "name": row[0],
+            "url": row[1],
+            "balance": row[2],
+            "upkeep": row[3],
+            "upkeep_days": round(row[4], 1) # Keep the days rounded nicely
+        })
 
-# ==========================================
-# 🤖 DISCORD BOT FUNCTION
-# ==========================================
-async def send_discord_messages(collection):
-    """
-    Send Discord messages for towns with upkeep days < 3 and total balance sum.
-    """
-    token = os.getenv('DISCORD_TOKEN')
-    if not token:
-        print("❌ DISCORD_TOKEN not set in environment variables.")
-        return
+    # Write it all to a file named 'town_data.json'
+    with open('town_data.json', 'w', encoding='utf-8') as f:
+        json.dump(town_data, f, indent=4)
 
-    channel_id = os.getenv('DISCORD_CHANNEL_ID')
-    if not channel_id:
-        print("❌ DISCORD_CHANNEL_ID not set in environment variables.")
-        return
-
-    channel_id = int(channel_id)
-
-    intents = discord.Intents.default()
-    client = discord.Client(intents=intents)
-
-    @client.event
-    async def on_ready():
-        print(f"🤖 Logged in as {client.user}")
-        channel = client.get_channel(channel_id)
-        if not channel:
-            print("❌ Could not find the Discord channel.")
-            await client.close()
-            return
-
-        # Send messages for towns with upkeep_days < 3
-        towns_low = collection.find({'upkeep_days': {'$lt': 3}})
-        for town in towns_low:
-            msg = f"⚠️ Town: {town['name']}\nBalance: ${town['balance']}\nUpkeep: ${town['upkeep']}\nDays: {round(town['upkeep_days'], 1)}"
-            await channel.send(msg)
-
-        # Calculate and send total balance
-        pipeline = [{'$group': {'_id': None, 'total': {'$sum': '$balance'}}}]
-        result = list(collection.aggregate(pipeline))
-        total_balance = result[0]['total'] if result else 0.0
-        await channel.send(f"💰 Total balance of all towns: ${total_balance}")
-
-        print("✅ Discord messages sent.")
-        await client.close()
-
-    try:
-        await client.start(token)
-    except Exception as e:
-        print(f"❌ Error with Discord bot: {e}")
-
-
+    print("\n💾 Success! All data exported to town_data.json")
 
 # ==========================================
 # 🚀 EXECUTE THE PROGRAM
 # ==========================================
 if __name__ == "__main__":
-    collection = scrape_using_urls()
-    asyncio.run(send_discord_messages(collection))
+    scrape_using_urls()
