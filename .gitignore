@@ -50,3 +50,4 @@ ccnet_towns.db
 *.json.bak
 town_data.json.bak
 town_data.json
+*.log
