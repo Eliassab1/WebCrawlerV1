@@ -38,7 +38,7 @@ def get_towns_to_check(collection):
     towns = collection.find({})
     return [(town['name'], town['url']) for town in towns]
 
-def update_town_stats(collection, name, balance, upkeep, upkeep_days):
+def update_town_stats(collection, name, balance, upkeep, upkeep_days, residents):
     """
     Update town statistics in MongoDB.
     """
@@ -47,7 +47,8 @@ def update_town_stats(collection, name, balance, upkeep, upkeep_days):
         {'$set': {
             'balance': balance,
             'upkeep': upkeep,
-            'upkeep_days': upkeep_days
+            'upkeep_days': upkeep_days,
+            'residents': residents
         }},
         upsert=True  # Create document if it doesn't exist
     )
@@ -70,21 +71,24 @@ def load_towns_from_mongodb(collection):
                     "url": "https://map.ccnetmc.com/nationsmap/#world;flat;5432,64,2291;3",
                     "balance": 0.0,
                     "upkeep": 0.0,
-                    "upkeep_days": 0.0
+                    "upkeep_days": 0.0,
+                    "residents": 0
                 },
                 {
                     "name": "Minas_Tirith",
                     "url": "https://map.ccnetmc.com/nationsmap/#world;flat;5692,64,2353;3",
                     "balance": 0.0,
                     "upkeep": 0.0,
-                    "upkeep_days": 0.0
+                    "upkeep_days": 0.0,
+                    "residents": 0
                 },
                 {
                     "name": "Helmsdeep",
                     "url": "https://map.ccnetmc.com/nationsmap/#world;flat;2914,64,3069;3",
                     "balance": 0.0,
                     "upkeep": 0.0,
-                    "upkeep_days": 0.0
+                    "upkeep_days": 0.0,
+                    "residents": 0
                 }
             ]
             collection.insert_many(default_towns)
@@ -132,14 +136,16 @@ def scrape_using_urls():
                 # Regex Magic: Slice out the numbers
                 bank_match = re.search(r"Bank\D*\$([\d,]+(?:\.\d+)?)", popup_text)
                 upkeep_match = re.search(r"Upkeep\D*\$([\d,]+(?:\.\d+)?)", popup_text)
+                residents_match = re.search(r"Residents\s*\((\d+)\)", popup_text)
 
                 if bank_match and upkeep_match:
                     clean_balance = float(bank_match.group(1).replace(',', ''))
                     clean_upkeep = float(upkeep_match.group(1).replace(',', ''))
                     upkeep_days = clean_balance / clean_upkeep if clean_upkeep > 0 else 0
+                    residents = int(residents_match.group(1).replace(',', '')) if residents_match else 0
 
-                    update_town_stats(collection, town_name, clean_balance, clean_upkeep, upkeep_days)
-                    print(f"✅ Saved {town_name} | Bal: ${clean_balance} | Upkeep: ${clean_upkeep} | Days: {round(upkeep_days, 1)}")
+                    update_town_stats(collection, town_name, clean_balance, clean_upkeep, upkeep_days, residents)
+                    print(f"✅ Saved {town_name} | Bal: ${clean_balance} | Upkeep: ${clean_upkeep} | Days: {round(upkeep_days, 1)} | Residents: {residents}")
                 else:
                     print(f"⚠️ Could not find Bank or Upkeep numbers in {town_name}'s popup text.")
 
@@ -179,6 +185,14 @@ def send_discord_messages(collection):
     msg = f"💰 Total balance of all towns: ${total_balance}"
     print(f"Sending Discord message: {msg}")
     requests.post(webhook_url, json={"content": msg})
+
+    # Calculate and send total residents
+    pipeline_residents = [{'$group': {'_id': None, 'total': {'$sum': '$residents'}}}]
+    result_residents = list(collection.aggregate(pipeline_residents))
+    total_residents = result_residents[0]['total'] if result_residents else 0
+    msg_residents = f"👥 Total residents in all towns: {total_residents}"
+    print(f"Sending Discord message: {msg_residents}")
+    requests.post(webhook_url, json={"content": msg_residents})
 
 
 # ==========================================
