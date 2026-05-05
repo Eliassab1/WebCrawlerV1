@@ -3,7 +3,6 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import time
 import re
-import json
 import os
 
 # Load environment variables from .env file
@@ -19,9 +18,11 @@ def setup_db():
     Falls back to localhost if not provided.
     """
     mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+    db_name = os.getenv('MONGO_DB_NAME', 'Val')
+    collection_name = os.getenv('MONGO_COLLECTION_NAME', 'CCnet_Towns')
     client = MongoClient(mongo_uri)
-    db = client['Val']
-    collection = db['CCnet_Towns']
+    db = client[db_name]
+    collection = db[collection_name]
 
     # Create index on name field for faster lookups
     collection.create_index('name', unique=True)
@@ -145,31 +146,9 @@ def scrape_using_urls():
                 print(f"❌ Failed to scrape {town_name}. Error: {e}")
 
         browser.close()
-        export_to_json(collection)
         print("🎉 Scraping run complete!")
 
 
-def export_to_json(collection):
-    """
-    Export all town data from MongoDB to town_data.json for backup/reference.
-    """
-    towns = list(collection.find({}, {'_id': 0}))
-
-    town_data = []
-    for town in towns:
-        town_data.append({
-            "name": town['name'],
-            "url": town['url'],
-            "balance": town.get('balance', 0.0),
-            "upkeep": town.get('upkeep', 0.0),
-            "upkeep_days": round(town.get('upkeep_days', 0.0), 1)
-        })
-
-    # Write it all to a file named 'town_data.json'
-    with open('town_data.json', 'w', encoding='utf-8') as f:
-        json.dump(town_data, f, indent=4)
-
-    print("\n💾 Success! All data exported to town_data.json")
 
 # ==========================================
 # 🚀 EXECUTE THE PROGRAM

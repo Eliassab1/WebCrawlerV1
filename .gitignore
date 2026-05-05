@@ -49,4 +49,4 @@ ccnet_towns.db
 # Local backup files
 *.json.bak
 town_data.json.bak
-
+town_data.json
